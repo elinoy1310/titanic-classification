@@ -1,0 +1,51 @@
+
+missing_values:
+  enabled: true
+  numeric_strategy: median # median, mean
+  categorical_strategy: most_frequent
+
+columns:
+  drop:
+    - PassengerId
+    - Cabin
+    - Name
+    - Ticket
+    - Parch
+    - SibSp
+
+
+feature_engineering:
+  family_size:
+    enabled: true
+
+  title:
+    enabled: false
+    group_rare: false
+    min_frequency: 10
+
+  cabin_recorded:
+    enabled: false
+
+  deck:
+    enabled: false
+
+  ticket_prefix:
+    enabled: false
+
+scaling:
+  enabled: true
+  method: standard  # standard, minmax, robust, maxabs
+
+categorical_encoding:
+  enabled: true
+  method: onehot  # onehot, ordinal
+
+  # ordinal_features:
+  #   Pclass: [1, 2, 3]
+
+transformations:
+  fare:
+    log1p: true
+
+outliers:
+  enabled: false

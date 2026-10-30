@@ -1,0 +1,45 @@
+model:
+  input_dim: auto  # Determined from preprocessed training data
+  hidden_layers: [64,32]
+  dropout: 0.05
+  activation: relu
+  output_dim: 1
+  
+
+training:
+  seed: 42
+  epochs: 100
+  batch_size: 64
+
+  optimizer: adam
+  learning_rate: 0.001
+  weight_decay: 0.0001
+
+  loss: bce_with_logits
+
+  early_stopping:
+    enabled: true
+    monitor: val_loss
+    patience: 20
+    min_delta: 0.0001
+
+  decision_threshold: 0.5
+
+  class_weighting:
+    enabled: true
+    method: balanced
+
+validation:
+  method: k_fold  # holdout, k_fold
+  test_size: 0.2
+  stratified: true
+
+  cross_validation:
+    n_splits: 5
+    shuffle: true
+    random_state: 42
+
+
+feature_importance:
+      n_repeats: 20
+      random_state: 42
