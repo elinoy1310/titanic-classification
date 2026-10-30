@@ -30,7 +30,7 @@ training:
     method: balanced
 
 validation:
-  method: k_fold  # holdout, k_fold
+  method: holdout  # holdout, k_fold
   test_size: 0.2
   stratified: true
 

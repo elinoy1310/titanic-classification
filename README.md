@@ -17,13 +17,9 @@ based on  **[Titanic dataset from Kaggle](https://www.kaggle.com/competitions/ti
   - [1. Evaluation](#1-evaluation)
   - [2. Inference](#2-inference)
 - [Architecture and Design Choices](#architecture-and-design-choices)
-  - [Data Preprocessing](#data-preprocessing)
-  - [Model Architecture](#model-architecture)
-  - [Evaluation Strategy](#evaluation-strategy)
-  - [Application Design](#application-design)
 
 ## Project Structure
-CHANGE!
+
 ```text
 titanic-classification/
 │
@@ -31,35 +27,40 @@ titanic-classification/
 │   ├── model.yaml
 │   └── preprocessing.yaml
 │
-├── data/
-│   ├── raw/
-│   └── processed/
+├── dashboard/
+│   ├── components/
+│   │   ├── __init__.py
+│   │   ├── common.py
+│   │   ├── features.py
+│   │   ├── inference.py
+│   │   ├── overview.py
+│   │   ├── training.py
+│   │   └── validation.py
+│   │
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   ├── data_loader.py
+│   │   └── inference_runner.py
+│   │
+│   └── ds_app.py
 │
 ├── notebooks/
 │   └── eda.ipynb
 │
-├── scripts/
+├── utils/
+│   ├── config_utils.py
 │   └── download_data.py
 │
-├── artifacts/
-│   ├── model.pth
-│   ├── preprocessor.joblib
-│   ├── model_metadata.json
-│   ├── validation_metrics.json
-│   ├── validation_predictions.csv
-│   ├── training_history.csv
-│   └── feature_importance.csv
-│
-├── titanic_dashboard/
-│   ├── ds_app.py
-│   ├── components/
-│   └── utils/
-│
-├── train.py
 ├── model.py
+├── model_inference.py
 ├── preprocessing.py
+├── feature_importance.py
+├── cross_validation.py
+├── train.py
+│
 ├── requirements.txt
-└── README.md
+├── README.md
+└── .gitignore
 ```
 
 ## Installation
@@ -119,11 +120,10 @@ jupyter notebook notebooks/eda.ipynb
 Alternatively, open the notebook directly in Visual Studio Code or JupyterLab.
 
 ## Download the Dataset
-MAYBE CHANGE
 Run the following command from the project root:
 
 ```bash
-python scripts/download_data.py
+python utils/download_data.py
 ```
 
 The script downloads only `train.csv` into:
@@ -135,25 +135,14 @@ data/raw/train.csv
 The project uses only the training dataset provided by Kaggle. A separate validation set is created during model training.
 
 ## Model Training
-CHANGE: ADD A note that it base on config file + the paths to config files
 
 To train the classification model and generate the evaluation artifacts, run:
 
 ```bash
 python train.py
 ```
-MAYBE CHANGE : not add to much details
-The training pipeline performs the following steps:
 
-1. Loads the Titanic dataset from `data/raw/train.csv`.
-2. Splits the data into training and validation sets.
-3. Fits the preprocessing pipeline using training data only.
-4. Transforms the training and validation features.
-5. Trains a PyTorch classification model.
-6. Uses early stopping to select the best model checkpoint.
-7. Evaluates the best model on the held-out validation set.
-8. Calculates permutation-based feature importance.
-9. Saves the trained model, preprocessor, and evaluation results.
+The training pipeline uses the configuration files in the `config/` directory (`model.yaml` and `preprocessing.yaml`) to configure the preprocessing steps and the model training and evaluation pipeline.
 
 Generated artifacts are saved in the `artifacts/` directory.
 
@@ -162,14 +151,13 @@ Generated artifacts are saved in the `artifacts/` directory.
 The project includes a Streamlit application with two main workspaces: **Evaluation** and **Inference**.
 
 Run the dashboard from the project root:
-maybe CHANGE: move the file
 ```bash
 streamlit run dashboard/ds_app.py
 ```
 
 ### 1. Evaluation
 
-CHANGE: ADD A SCREENSHOT OF EACH SECTION
+![alt text](image.png)
 The Evaluation workspace presents the results of the model training and validation process.
 
 It includes the following sections:
@@ -181,7 +169,7 @@ It includes the following sections:
 - **Artifacts:** Information about the generated model artifacts and saved evaluation results.
 
 ### 2. Inference
-CHANGE: ADD A SCREENSHOT
+![alt text](image-1.png)
 The Inference workspace allows users to run the trained model on an external CSV dataset.
 
 The interface allows users to:
@@ -194,39 +182,15 @@ The interface allows users to:
 If the input dataset contains the `Survived` target column, additional evaluation metrics and visualizations are displayed.
 
 If the target column is not available, the application displays predictions without calculating evaluation metrics.
-
 ## Architecture and Design Choices
 
-CHANGE: think what i should  explain gere
-### Data Preprocessing
+The project is organized into separate modules, each responsible for a specific stage of the classification pipeline:
 
-A Scikit-learn preprocessing pipeline is used to handle missing values, encode categorical variables, scale numerical features, and perform feature engineering.
+- **Data Preprocessing (`preprocessing.py`):** Handles data preparation and feature engineering using a Scikit-learn pipeline.
+- **Model (`model.py`):** Defines the PyTorch neural network architecture.
+- **Training (`train.py`):** Manages model training, validation, and Cross Validation.
+- **Evaluation (`feature_importance.py`):** Calculates model performance metrics and feature importance.
+- **Inference (`model_inference.py`):** Handles model loading and predictions on new datasets.
+- **Dashboard (`dashboard/`):** Provides a Streamlit interface for visualizing evaluation results and running inference.
 
-Additional features are extracted from existing columns, including passenger titles, cabin decks, ticket prefixes, and family size.
-
-The preprocessing pipeline is fitted exclusively on the training data to prevent data leakage. The fitted pipeline is saved and reused during inference to ensure consistent transformations.
-
-### Model Architecture
-A binary classification neural network is implemented using PyTorch.
-
-The model is trained using Binary Cross Entropy with Logits Loss and the Adam optimizer. Early stopping is used to select the best checkpoint based on validation loss.
-
-### Evaluation Strategy
-
-The dataset is divided into training and validation sets using a reproducible split.
-
-Model performance is evaluated using Accuracy, Precision, Recall, F1-score, and ROC-AUC.
-
-Additional evaluation tools include a confusion matrix, ROC curve, training history visualization, and permutation-based feature importance.
-
-Permutation Importance measures how much model performance decreases when an individual input feature is randomly shuffled.
-
-### Application Design
-
-The Streamlit application separates model evaluation from inference.
-
-The Evaluation workspace visualizes the training and validation results saved during training.
-
-The Inference workspace loads the saved model and preprocessing pipeline to generate predictions on external datasets.
-
-The application is organized into separate components and utility modules to improve maintainability and make future extensions easier.
+Model and preprocessing configurations are managed separately through YAML files in the `config/` directory. This modular structure promotes code reuse, maintainability, and separation of concerns.
