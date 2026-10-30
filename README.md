@@ -10,8 +10,8 @@ based on  **[Titanic dataset from Kaggle](https://www.kaggle.com/competitions/ti
   - [2. (Optional) Create a virtual environment](#2-optional-create-a-virtual-environment)
   - [3. Install dependencies](#3-install-dependencies)
 - [Kaggle API Setup](#kaggle-api-setup)
-- [Exploratory Data Analysis (EDA)](#exploratory-data-analysis-eda)
 - [Download the Dataset](#download-the-dataset)
+- [Exploratory Data Analysis (EDA)](#exploratory-data-analysis-eda)
 - [Model Training](#model-training)
 - [Streamlit Dashboard](#streamlit-dashboard)
   - [1. Evaluation](#1-evaluation)
@@ -103,6 +103,22 @@ The dataset is downloaded directly from Kaggle using the Kaggle API.
 3. Configure your Kaggle API credentials locally according to the [official Kaggle API documentation](https://www.kaggle.com/docs/api).
 4. Accept the Titanic competition rules on Kaggle before downloading the data.
 
+## Download the Dataset
+Run the following command from the project root:
+
+```bash
+python utils/download_data.py
+```
+
+The script downloads only `train.csv` into:
+
+```text
+data/raw/train.csv
+```
+
+The project uses only the training dataset provided by Kaggle. A separate validation set is created during model training.
+
+
 ## Exploratory Data Analysis (EDA)
 
 The exploratory data analysis is performed in a Jupyter Notebook:
@@ -118,21 +134,6 @@ jupyter notebook notebooks/eda.ipynb
 ```
 
 Alternatively, open the notebook directly in Visual Studio Code or JupyterLab.
-
-## Download the Dataset
-Run the following command from the project root:
-
-```bash
-python utils/download_data.py
-```
-
-The script downloads only `train.csv` into:
-
-```text
-data/raw/train.csv
-```
-
-The project uses only the training dataset provided by Kaggle. A separate validation set is created during model training.
 
 ## Model Training
 
