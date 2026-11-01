@@ -1,3 +1,5 @@
+""" Validation plots, confusion matrix, and prediction exploration. """
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -7,6 +9,7 @@ from .common import find_column, first_value, styled_figure
 
 
 def render_validation(data):
+    """Render validation metrics, plots, and prediction filtering."""
     st.subheader("Validation analysis")
     is_oof = data["metrics"].get("evaluation_method") == "out_of_fold"
     predictions = data["frames"]["validation_predictions.csv"]

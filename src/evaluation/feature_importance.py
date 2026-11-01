@@ -1,3 +1,5 @@
+"""Permutation-based feature importance for validation data."""
+
 
 """Permutation feature importance utilities."""
 
@@ -5,10 +7,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import torch
 from sklearn.metrics import roc_auc_score
 
-from model_inference import run_model_inference
+from src.inference.model_inference import run_model_inference
 
 
 def calculate_feature_importance(
@@ -35,6 +36,7 @@ def calculate_feature_importance(
     rng = np.random.default_rng(random_state)
 
     def predict_probabilities(X):
+        """Run the fitted preprocessing and model on a raw feature frame."""
         result = run_model_inference(
             X_raw=X,
             preprocessor=preprocessor,
@@ -91,7 +93,7 @@ def calculate_feature_importance(
     return results_df
 
 
-def aggregate_feature_importance(fold_importance_results,output_path=None):
+def aggregate_feature_importance(fold_importance_results: list[pd.DataFrame], output_path: str | Path | None = None) -> pd.DataFrame:
     """Aggregate feature importance results across folds."""
 
     if not fold_importance_results:

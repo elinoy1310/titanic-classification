@@ -1,11 +1,11 @@
+"""Configurable Titanic feature engineering and preprocessing pipeline."""
+
 from pathlib import Path
 import re
 
 import joblib
 import numpy as np
 import pandas as pd
-from pandas import options
-import yaml
 
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
@@ -20,9 +20,9 @@ from sklearn.preprocessing import (
 )
 from sklearn.base import BaseEstimator, TransformerMixin
 
+from src.config.schemas import PreprocessingConfig
+from src.utils.config_utils import load_preprocessing_config
 
-CONFIG_PATH = Path("config/preprocessing.yaml")
-ARTIFACT_PATH = Path("artifacts/preprocessor.joblib")
 
 TARGET_COLUMN = "Survived"
 
@@ -45,12 +45,9 @@ CATEGORICAL_CANDIDATES = [
 ]
 
 
-def load_config(config_path=CONFIG_PATH):
-    """Load preprocessing settings from a YAML file."""
-    with open(config_path, "r", encoding="utf-8") as file:
-        config = yaml.safe_load(file)
-
-    return config
+def load_config(config_path: str | Path) -> PreprocessingConfig:
+    """Load and validate preprocessing settings from a YAML file."""
+    return load_preprocessing_config(config_path)
 
 
 def extract_title(name):
@@ -63,6 +60,7 @@ def extract_title(name):
     return "Unknown"
 
 def group_rare_titles(titles, min_frequency):
+    """Replace title categories below the frequency threshold with 'Rare'."""
     counts = titles.value_counts()
     rare_titles = counts[counts < min_frequency].index
 
@@ -86,67 +84,68 @@ def extract_ticket_prefix(ticket):
     return prefix if prefix else "Numeric Only"
 
 
-def add_engineered_features(data, config, rare_titles=None):
+def add_engineered_features(data: pd.DataFrame, config: PreprocessingConfig, rare_titles=None):
     """
     Create optional features before dropping their source columns.
 
     This function does not learn statistics from the data.
     """
     data = data.copy()
-    options = config["feature_engineering"]
+    options = config.feature_engineering
 
-    if options["family_size"]["enabled"]:
+    if options.family_size.enabled:
         data["FamilySize"] = data["SibSp"] + data["Parch"] + 1
 
-    if options["title"]["enabled"]:
+    if options.title.enabled:
         data["Title"] = data["Name"].map(extract_title)
 
-        title_config = options["title"]
+        title_config = options.title
 
-        if title_config.get("group_rare", False):
+        if title_config.group_rare:
             if rare_titles is None:
                 counts = data["Title"].value_counts()
-        
-                rare_titles = set( counts[ counts < title_config["min_frequency"] ].index )
+
+                rare_titles = set( counts[ counts < title_config.min_frequency ].index )
 
             data["Title"] = data["Title"].where(
                 ~data["Title"].isin(rare_titles),
                 "Rare",
             )
-        
 
-    if options["deck"]["enabled"]:
+
+    if options.deck.enabled:
         data["Deck"] = data["Cabin"].map(extract_deck)
 
-    if options["ticket_prefix"]["enabled"]:
+    if options.ticket_prefix.enabled:
         data["Ticket_Prefix"] = data["Ticket"].map(extract_ticket_prefix)
 
-    if config.get("transformations", {}).get("fare", {}).get("log1p", False):
+    if config.transformations.fare.log1p:
         data["Fare"] = np.log1p(data["Fare"])
 
-    if options["cabin_recorded"]["enabled"]:
+    if options.cabin_recorded.enabled:
         data["Cabin_Recorded"] = (
             data["Cabin"].notna().astype(int)
         )
 
-    columns_to_drop = config["columns"]["drop"]
+    columns_to_drop = config.columns.drop
     existing_columns = [col for col in columns_to_drop if col in data.columns]
 
     data = data.drop(columns=existing_columns)
 
     return data
 
-def build_categorical_pipeline(config, encoder):
+def build_categorical_pipeline(config: PreprocessingConfig, encoder):
+    """Build categorical imputation and encoding steps."""
     steps = []
 
-    if config["missing_values"]["enabled"]:
-        steps.append(("imputer", SimpleImputer(strategy=config["missing_values"]["categorical_strategy"])))
+    if config.missing_values.enabled:
+        steps.append(("imputer", SimpleImputer(strategy=config.missing_values.categorical_strategy)))
 
     steps.append(("encoder", encoder))
 
     return Pipeline(steps)
 
-def build_preprocessor(config, training_features):
+def build_preprocessor(config: PreprocessingConfig, training_features: pd.DataFrame):
     """
     Build a scikit-learn preprocessing pipeline.
 
@@ -169,18 +168,18 @@ def build_preprocessor(config, training_features):
 
 
     # Missing-value handling
-    if config["missing_values"]["enabled"]:
+    if config.missing_values.enabled:
         numeric_steps = [
             ("imputer", SimpleImputer(
-                strategy=config["missing_values"]["numeric_strategy"]
+                strategy=config.missing_values.numeric_strategy
             ))
         ]
     else:
         numeric_steps = []
 
     # Scaling
-    if config["scaling"]["enabled"]:
-        scaler_name = config["scaling"]["method"]
+    if config.scaling.enabled:
+        scaler_name = config.scaling.method
 
         scalers = {
             "standard": StandardScaler,
@@ -200,18 +199,18 @@ def build_preprocessor(config, training_features):
     # Categorical encoding
     transformers = []
 
-    if config["categorical_encoding"]["enabled"]:
-        encoding_method = config["categorical_encoding"]["method"]
+    if config.categorical_encoding.enabled:
+        encoding_method = config.categorical_encoding.method
 
         if encoding_method == "onehot":
             if categorical_columns:
                 categorical_pipeline = build_categorical_pipeline(config, OneHotEncoder(handle_unknown="ignore"))
 
                 transformers.append(("categorical", categorical_pipeline, categorical_columns))
-                       
+
         elif encoding_method == "ordinal":
             if "Pclass" in categorical_columns:
-                ordinal_categories = config["categorical_encoding"].get("ordinal_features", {}).get("Pclass")
+                ordinal_categories = config.categorical_encoding.ordinal_features.get("Pclass")
 
                 if ordinal_categories != [1, 2, 3]:
                     raise ValueError("For ordinal encoding, configure Pclass as [1, 2, 3].")
@@ -264,7 +263,7 @@ def build_preprocessor(config, training_features):
         transformers.append(
             ("numeric", numeric_pipeline, numeric_columns)
         )
-    
+
     # Do not silently discard unsupported columns.
     supported_columns = set(numeric_columns + categorical_columns)
     unsupported_columns = [
@@ -290,24 +289,27 @@ def build_preprocessor(config, training_features):
 class FeatureEngineeringTransformer(BaseEstimator, TransformerMixin):
     """Apply deterministic feature engineering using training statistics."""
 
-    def __init__(self, config):
+    def __init__(self, config: PreprocessingConfig):
+        """Store the feature-engineering configuration without fitting data."""
         self.config = config
 
     def fit(self, X, y=None):
-        options = self.config["feature_engineering"]
-        title_config = options["title"]
+        """Learn rare-title categories from the training partition only."""
+        options = self.config.feature_engineering
+        title_config = options.title
 
         self.rare_titles_ = set()
 
-        if title_config["enabled"] and title_config.get("group_rare", False):
+        if title_config.enabled and title_config.group_rare:
             titles = X["Name"].map(extract_title)
             counts = titles.value_counts()
 
-            self.rare_titles_ = set( counts[counts < title_config["min_frequency"]].index )
+            self.rare_titles_ = set( counts[counts < title_config.min_frequency].index )
 
         return self
 
     def transform(self, X):
+        """Apply configured feature engineering using fitted statistics."""
         if not hasattr(self, "rare_titles_"):
             raise RuntimeError("FeatureEngineeringTransformer must be fitted first.")
 
@@ -327,7 +329,7 @@ def split_features_target(data):
 
     return X, y
 
-def fit_preprocessor(X_train, config):
+def fit_preprocessor(X_train: pd.DataFrame, config: PreprocessingConfig):
     """Fit the preprocessing pipeline on training data only."""
     training_features = add_engineered_features(X_train, config)
     pipeline = build_preprocessor(config, training_features)
@@ -340,7 +342,7 @@ def transform_features(pipeline, data):
     return pipeline.transform(data)
 
 
-def save_preprocessor(pipeline, config, path=ARTIFACT_PATH):
+def save_preprocessor(pipeline, config: PreprocessingConfig, path: str | Path):
     """Save the fitted pipeline and its configuration."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -348,14 +350,28 @@ def save_preprocessor(pipeline, config, path=ARTIFACT_PATH):
     joblib.dump(
         {
             "pipeline": pipeline,
-            "config": config,
+            "config": config.model_dump(mode="json"),
         },
         path,
     )
 
 
-def load_preprocessor(path=ARTIFACT_PATH):
+def load_preprocessor(path: str | Path):
     """Load the saved fitted pipeline and configuration."""
     artifact = joblib.load(path)
 
-    return artifact["pipeline"], artifact["config"]
+    pipeline = artifact["pipeline"]
+    saved_config = artifact["config"]
+
+    # Older joblib artifacts stored the preprocessing config as a plain dict.
+    if isinstance(saved_config, PreprocessingConfig):
+        preprocessing_config = saved_config
+    else:
+        preprocessing_config = PreprocessingConfig.model_validate(saved_config)
+
+    # Older fitted transformers also retain the original dict on the object.
+    feature_transformer = pipeline.named_steps.get("features")
+    if feature_transformer is not None and hasattr(feature_transformer, "config"):
+        feature_transformer.config = preprocessing_config
+
+    return pipeline, preprocessing_config

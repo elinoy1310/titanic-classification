@@ -1,3 +1,5 @@
+""" Feature-importance visualizations for the Streamlit dashboard. """
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
@@ -5,6 +7,7 @@ from .common import find_column, styled_figure
 
 
 def render_features(data):
+    """Render the permutation feature-importance analysis."""
     st.subheader("Feature importance")
     st.write(
         "This view ranks original input features by how much they contribute "

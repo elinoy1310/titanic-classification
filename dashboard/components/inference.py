@@ -8,7 +8,6 @@ import json
 import streamlit as st
 from sklearn.metrics import confusion_matrix, roc_curve, roc_auc_score
 
-# from utils.inference_runner import load_saved_threshold, load_trained_model, run_inference
 from .common import styled_figure
 from utils.inference_runner import (
     load_saved_threshold,
@@ -18,18 +17,16 @@ from utils.inference_runner import (
 )
 
 def render_inference(default_project_root: Path, default_artifact_dir: Path):
-    st.subheader("Inference workspace")
-    st.write(
-        "Run the saved PyTorch model on a CSV file. If the CSV contains `Survived`, "
-        "the app also calculates evaluation metrics; otherwise it shows predictions only."
-    )
-
+    """Render the user-facing CSV inference workflow and its results."""
     with st.container(border=True):
         st.markdown("#### 1 · Model selection")
         metrics_path = default_artifact_dir / "validation_metrics.json"
 
-        with metrics_path.open("r", encoding="utf-8") as file:
-            saved_metrics = json.load(file)
+        if metrics_path.is_file():
+            with metrics_path.open("r", encoding="utf-8") as file:
+                saved_metrics = json.load(file)
+        else:
+            saved_metrics = {}
 
         evaluation_method = saved_metrics.get("evaluation_method", "holdout")
 
@@ -55,7 +52,7 @@ def render_inference(default_project_root: Path, default_artifact_dir: Path):
         project_root_text = st.text_input(
             "Training project root",
             value=str(default_project_root),
-            help="Folder containing model.py and preprocessing.py.",
+            help="Folder containing the src/ package and project configuration.",
             key="inference_project_root",
         )
 
@@ -122,7 +119,7 @@ def render_inference(default_project_root: Path, default_artifact_dir: Path):
     )
 
     run_clicked = st.button("Run inference", type="primary", use_container_width=True)
-    
+
     if run_clicked:
         try:
             if uploaded_csv is None:
@@ -189,7 +186,7 @@ def render_inference(default_project_root: Path, default_artifact_dir: Path):
         st.code(error)
         st.info(
             "Check that model.pth and preprocessor.joblib came from the same training run, "
-            "that the project root contains model.py and preprocessing.py, and that the CSV "
+            "that the project root contains the src/ package, and that the CSV "
             "contains the original input columns expected by the saved preprocessor."
         )
 

@@ -1,13 +1,16 @@
+"""Shared preprocessing and model inference utilities."""
+
 
 """Shared preprocessing and model inference utilities."""
 
 import numpy as np
 import pandas as pd
 import torch
+from typing import Any
 
 from scipy.sparse import issparse
 
-from preprocessing import transform_features
+from src.data.preprocessor import transform_features
 
 
 
@@ -39,6 +42,9 @@ def run_model_inference(
 
     X_processed = np.asarray(transformed, dtype=np.float32)
     
+    if X_processed.ndim != 2:
+        raise ValueError("Preprocessing must produce a 2D feature matrix.")
+
     for module in model.modules():
         if isinstance(module, torch.nn.Linear):
             if module.in_features != X_processed.shape[1]:
@@ -47,9 +53,6 @@ def run_model_inference(
                     f"features, but the model expects {module.in_features}."
                 )
             break
-
-    if X_processed.ndim != 2:
-        raise ValueError("Preprocessing must produce a 2D feature matrix.")
 
     if not np.isfinite(X_processed).all():
         raise ValueError("Preprocessed features contain NaN or infinite values.")

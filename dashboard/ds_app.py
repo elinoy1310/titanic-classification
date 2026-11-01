@@ -1,155 +1,213 @@
-from pathlib import Path
-import time
-import streamlit as st
-import tkinter as tk
-from tkinter import filedialog
+"""Streamlit entry point for the Titanic evaluation and inference dashboard."""
+
+import argparse
 from pathlib import Path
 
-from utils.data_loader import load_artifacts
+import streamlit as st
+
+from components.features import render_features
+from components.inference import render_inference
 from components.overview import render_overview
 from components.training import render_training
 from components.validation import render_validation
-from components.features import render_features
-from components.inference import render_inference
+from utils.data_loader import load_artifacts
+
 
 BASE_DIR = Path(__file__).resolve().parent
-DEFAULT_ARTIFACT_DIR = BASE_DIR.parent / "artifacts"
+DEFAULT_PROJECT_ROOT = BASE_DIR.parent
+DEFAULT_ARTIFACT_DIR = DEFAULT_PROJECT_ROOT / "artifacts"
 
-def select_directory(initial_dir=None):
-    """Open a native file explorer dialog to select a directory."""
 
-    root = tk.Tk()
-    root.withdraw()
-    root.attributes("-topmost", True)
+def parse_args() -> argparse.Namespace:
+    """Parse optional dashboard paths, ignoring Streamlit's own CLI arguments."""
+    parser = argparse.ArgumentParser(
+        description="Launch the Titanic model evaluation dashboard."
+    )
+    parser.add_argument(
+        "--project-root",
+        type=Path,
+        default=DEFAULT_PROJECT_ROOT,
+        help="Project root containing config/, src/, and artifacts/.",
+    )
+    parser.add_argument(
+        "--artifact-dir",
+        type=Path,
+        default=DEFAULT_ARTIFACT_DIR,
+        help="Directory containing the saved training artifacts.",
+    )
+    args, _unknown_args = parser.parse_known_args()
+    return args
 
-    selected_dir = filedialog.askdirectory(
-        title="Select Artifacts Root Directory",
-        initialdir=initial_dir or str(Path.cwd()),
+
+def render_dashboard(args: argparse.Namespace) -> None:
+    """Render the selected dashboard workspace."""
+    project_root = args.project_root.expanduser().resolve()
+    default_artifact_dir = args.artifact_dir.expanduser().resolve()
+
+    st.set_page_config(
+        page_title="Titanic · Model Dashboard",
+        page_icon="🚢",
+        layout="wide",
+        initial_sidebar_state="expanded",
     )
 
-    root.destroy()
+    st.markdown(
+        """
+        <style>
+            .block-container {padding-top: 1.6rem; padding-bottom: 2rem; max-width: 1500px;}
+            [data-testid="stMetric"] {background: var(--secondary-background-color); padding: 16px 18px; border-radius: 14px; border: 1px solid rgba(128,128,128,.16);}
+            [data-testid="stMetricLabel"] {font-size: .88rem;}
+            .hero {padding: 1.25rem 1.5rem; border-radius: 18px; background: linear-gradient(120deg, #12243a, #244c68); color: white; margin-bottom: 1.2rem;}
+            .hero h1 {margin: 0; color: white; font-size: 2rem;}
+            .hero p {margin: .4rem 0 0; color: #d9e8f2;}
+            div[data-testid="stDataFrame"] {border-radius: 12px; overflow: hidden;}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    return selected_dir
-
-st.set_page_config(
-    page_title="Titanic · Model Evaluation",
-    page_icon="🚢",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
-st.markdown("""
-<style>
-    .block-container {padding-top: 1.6rem; padding-bottom: 2rem; max-width: 1500px;}
-    [data-testid="stMetric"] {background: var(--secondary-background-color); padding: 16px 18px; border-radius: 14px; border: 1px solid rgba(128,128,128,.16);}
-    [data-testid="stMetricLabel"] {font-size: .88rem;}
-    .hero {padding: 1.25rem 1.5rem; border-radius: 18px; background: linear-gradient(120deg, #12243a, #244c68); color: white; margin-bottom: 1.2rem;}
-    .hero h1 {margin: 0; color: white; font-size: 2rem;}
-    .hero p {margin: .4rem 0 0; color: #d9e8f2;}
-    div[data-testid="stDataFrame"] {border-radius: 12px; overflow: hidden;}
-</style>
-<div class="hero">
-  <h1>🚢 Titanic · Model Evaluation</h1>
-  <p>Validation performance, training diagnostics, prediction analysis and feature importance.</p>
-</div>
-""", unsafe_allow_html=True)
-
-with st.sidebar:
-    st.title("Titanic dashboard")
-
-    # Initialize the artifacts directory.
-    if "artifact_dir" not in st.session_state:
-        st.session_state.artifact_dir = str(DEFAULT_ARTIFACT_DIR.resolve())
-
-    if st.button("Browse for folder", use_container_width=True):
-        selected_dir = select_directory(
-            st.session_state.artifact_dir
+    with st.sidebar:
+        st.title("Titanic dashboard")
+        artifact_dir_text = st.text_input(
+            "Artifacts directory",
+            value=str(default_artifact_dir),
+            help="Directory containing validation_metrics.json and the generated CSV artifacts.",
         )
+        artifact_dir = Path(artifact_dir_text).expanduser()
 
-        if selected_dir:
-            st.session_state.artifact_dir = selected_dir
-            st.rerun()
-
-    artifact_dir = Path(st.session_state.artifact_dir).expanduser()
-
-    st.caption(f"Selected folder: {artifact_dir}")
-    st.caption("Evaluation uses the artifacts generated by train.py.")
-
-    st.divider()
-
-    section = st.radio(
-        "Workspace",
-        ["Evaluation", "Inference"],
-        key="dashboard_workspace",
-    )
-
-    if section == "Evaluation":
-        st.markdown("### Evaluation")
-        evaluation_page = st.radio(
-            "Evaluation pages",
-            [
-                "Overview",
-                "Training progress",
-                "Validation analysis",
-                "Feature importance",
-                "Artifacts",
-            ],
-            label_visibility="collapsed",
-            key="evaluation_navigation",
+        st.caption(f"Selected folder: {artifact_dir}")
+        section = st.radio(
+            "Workspace",
+            ["Evaluation", "Inference"],
+            key="dashboard_workspace",
         )
-
-# Load artifacts from the selected directory.
-try:
-    data = load_artifacts(artifact_dir)
-        
-except Exception as exc:
-    st.error(f"Could not load artifacts: {exc}")
-    st.info(
-        "Run `python train.py` first, or select the folder "
-        "containing the generated artifacts."
-    )
-    st.stop()
-
-
-# Keep validation evaluation and user-supplied inference as separate workspaces.
-if section == "Inference":
-    render_inference(
-        default_project_root=BASE_DIR.parent,
-        default_artifact_dir=BASE_DIR.parent / "artifacts",
-    )
-elif evaluation_page == "Overview":
-    with st.spinner(f"Loading artifacts from: {artifact_dir}"):
-        render_overview(data)
-elif evaluation_page == "Training progress":
-    render_training(data)
-elif evaluation_page == "Validation analysis":
-    render_validation(data)
-elif evaluation_page == "Feature importance":
-    render_features(data)
-else:
-    st.subheader("Artifact status")
-    is_oof = data["metrics"].get("evaluation_method") == "out_of_fold"
-    for name, frame in data["frames"].items():
-        if not is_oof and name.startswith("cross_validation_"):
-            continue
-        if frame is not None:
-            st.success(f"{name}: loaded · {len(frame):,} rows × {len(frame.columns):,} columns")
+        if section == "Evaluation":
+            st.caption("Evaluation uses artifacts generated by train.py.")
         else:
-            st.warning(f"{name}: not found (optional unless required by the selected view)")
-    with st.expander("Raw validation metrics JSON", expanded=False):
-        st.json(data["metrics"])
-    for name, frame in data["frames"].items():
-        if not is_oof and name.startswith("cross_validation_"):
-            continue
+            st.caption("Inference runs the saved model on an uploaded CSV dataset.")
+        st.divider()
 
-        if frame is not None:
+        evaluation_page = None
+        if section == "Evaluation":
+            st.markdown("### Evaluation")
+            evaluation_page = st.radio(
+                "Evaluation pages",
+                [
+                    "Overview",
+                    "Training progress",
+                    "Validation analysis",
+                    "Feature importance",
+                    "Artifacts",
+                ],
+                label_visibility="collapsed",
+                key="evaluation_navigation",
+            )
+
+    if section == "Inference":
+        st.markdown(
+            """
+            <div class="hero">
+              <h1>🚢 Titanic · Model Inference</h1>
+              <p>Generate survival predictions for new passenger datasets and evaluate them when actual labels are available.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        render_inference(
+            default_project_root=project_root,
+            default_artifact_dir=artifact_dir,
+        )
+        return
+
+    st.markdown(
+        """
+        <div class="hero">
+          <h1>🚢 Titanic · Model Evaluation</h1>
+          <p>Explore validation performance, training diagnostics, prediction analysis and feature importance.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    try:
+        with st.spinner(f"Loading artifacts from: {artifact_dir}"):
+            data = load_artifacts(artifact_dir)
+    except Exception as exc:
+        st.error(f"Could not load artifacts: {exc}")
+        st.info(
+            "Run `python train.py` first, or select the directory containing "
+            "the artifacts generated by the training script."
+        )
+        return
+
+    if evaluation_page == "Overview":
+        render_overview(data)
+    elif evaluation_page == "Training progress":
+        render_training(data)
+    elif evaluation_page == "Validation analysis":
+        render_validation(data)
+    elif evaluation_page == "Feature importance":
+        render_features(data)
+    else:
+        st.subheader("Artifact status")
+        is_oof = data["metrics"].get("evaluation_method") == "out_of_fold"
+
+        for name, frame in data["frames"].items():
+            if not is_oof and name.startswith("cross_validation_"):
+                continue
+            if frame is not None:
+                st.success(
+                    f"{name}: loaded · {len(frame):,} rows × "
+                    f"{len(frame.columns):,} columns"
+                )
+            else:
+                st.warning(
+                    f"{name}: not found (optional unless required by the selected view)"
+                )
+
+        with st.expander("Raw validation metrics JSON", expanded=False):
+            st.json(data["metrics"])
+
+        for name, frame in data["frames"].items():
+            if not is_oof and name.startswith("cross_validation_"):
+                continue
+            if frame is None:
+                continue
+
             with st.expander(f"Preview: {name}"):
                 st.dataframe(frame, use_container_width=True, hide_index=True)
                 if name == "feature_importance.csv":
                     if is_oof:
-                        st.markdown("**How to read this file:** `importance_mean` is the average decrease in validation ROC-AUC aggregated across folds; `importance_std` describes variation between folds; `baseline_roc_auc` is the baseline validation score; `permuted_roc_auc_mean` is the average score after permutation; `n_folds` is the number of folds included.")
-                        st.caption("The calculation reruns the fitted preprocessing pipeline and model for each shuffled feature within each validation fold.")
+                        st.markdown(
+                            "**How to read this file:** `importance_mean` is "
+                            "the average decrease in validation ROC-AUC aggregated "
+                            "across folds; `importance_std` describes variation "
+                            "between folds; `baseline_roc_auc` is the baseline "
+                            "validation score; `permuted_roc_auc_mean` is the "
+                            "average score after permutation; `n_folds` is the "
+                            "number of folds included."
+                        )
                     else:
-                        st.markdown("**How to read this file:** `importance_mean` is the average drop in validation ROC-AUC after shuffling a feature; `importance_std` is the variation across permutation repeats; `baseline_roc_auc` is the original validation score; `permuted_roc_auc_mean` is the average score after shuffling; `n_repeats` is the number of shuffles.")
-                        st.caption("The calculation reruns the fitted preprocessing pipeline and model for each shuffled original feature. Importance is predictive, not causal.")
+                        st.markdown(
+                            "**How to read this file:** `importance_mean` is "
+                            "the average drop in validation ROC-AUC after shuffling "
+                            "a feature; `importance_std` is the variation across "
+                            "permutation repeats; `baseline_roc_auc` is the original "
+                            "validation score; `permuted_roc_auc_mean` is the "
+                            "average score after shuffling; `n_repeats` is the "
+                            "number of shuffles."
+                        )
+                    st.caption(
+                        "Permutation importance measures predictive usefulness, "
+                        "not causality."
+                    )
 
+
+def main() -> None:
+    """Parse dashboard options and launch the Streamlit interface."""
+    args = parse_args()
+    render_dashboard(args)
+
+
+if __name__ == "__main__":
+    main()

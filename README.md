@@ -11,8 +11,10 @@ based on  **[Titanic dataset from Kaggle](https://www.kaggle.com/competitions/ti
   - [3. Install dependencies](#3-install-dependencies)
 - [Kaggle API Setup](#kaggle-api-setup)
 - [Download the Dataset](#download-the-dataset)
+  - [Command-Line Arguments](#command-line-arguments)
 - [Exploratory Data Analysis (EDA)](#exploratory-data-analysis-eda)
 - [Model Training](#model-training)
+  - [Command-Line Arguments](#command-line-arguments-1)
 - [Streamlit Dashboard](#streamlit-dashboard)
   - [1. Evaluation](#1-evaluation)
   - [2. Inference](#2-inference)
@@ -42,20 +44,55 @@ titanic-classification/
 │   │   ├── data_loader.py
 │   │   └── inference_runner.py
 │   │
+│   ├── __init__.py
 │   └── ds_app.py
 │
 ├── notebooks/
 │   └── eda.ipynb
 │
-├── utils/
-│   ├── config_utils.py
-│   └── download_data.py
+├── src/
+│   ├── artifacts/
+│   │   ├── __init__.py
+│   │   ├── model_io.py
+│   │   └── results_io.py
+│   │
+│   ├── config/
+│   │   ├── __init__.py
+│   │   └── schemas.py
+│   │
+│   ├── data/
+│   │   ├── __init__.py
+│   │   ├── preprocessing.py
+│   │   └── preprocessor.py
+│   │
+│   ├── evaluation/
+│   │   ├── __init__.py
+│   │   ├── evaluation.py
+│   │   ├── feature_importance.py
+│   │   └── metrics.py
+│   │
+│   ├── inference/
+│   │   ├── __init__.py
+│   │   └── model_inference.py
+│   │
+│   ├── models/
+│   │   ├── __init__.py
+│   │   └── model.py
+│   │
+│   ├── training/
+│   │   ├── __init__.py
+│   │   ├── cross_validation.py
+│   │   ├── pipeline.py
+│   │   └── trainer.py
+│   │
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   ├── config_utils.py
+│   │   └── reproducibility.py
+│   │
+│   └── __init__.py
 │
-├── model.py
-├── model_inference.py
-├── preprocessing.py
-├── feature_importance.py
-├── cross_validation.py
+├── download_data.py
 ├── train.py
 │
 ├── requirements.txt
@@ -104,19 +141,28 @@ The dataset is downloaded directly from Kaggle using the Kaggle API.
 4. Accept the Titanic competition rules on Kaggle before downloading the data.
 
 ## Download the Dataset
+
 Run the following command from the project root:
 
 ```bash
-python utils/download_data.py
+python download_data.py
 ```
 
-The script downloads only `train.csv` into:
+The script downloads only `train.csv` into `data/raw/` by default.
 
-```text
-data/raw/train.csv
-```
+### Command-Line Arguments
 
-The project uses only the training dataset provided by Kaggle. A separate validation set is created during model training.
+The download script supports the following arguments:
+
+| Argument | Default | Description |
+|---|---|---|
+| `--output-dir` | `data/raw/` | Directory where the downloaded file is saved. |
+| `--competition` | `titanic` | Kaggle competition identifier. |
+| `--file-name` | `train.csv` | Name of the competition file to download. |
+| `--kaggle-executable` | `kaggle` | Kaggle CLI executable name or path. |
+| `--keep-archive` | Disabled | Keep the downloaded ZIP archive after extracting the requested file. |
+
+The project uses only the training dataset provided by Kaggle. A separate training/validation split is created during model training.
 
 
 ## Exploratory Data Analysis (EDA)
@@ -143,9 +189,24 @@ To train the classification model and generate the evaluation artifacts, run:
 python train.py
 ```
 
-The training pipeline uses the configuration files in the `config/` directory (`model.yaml` and `preprocessing.yaml`) to configure the preprocessing steps and the model training and evaluation pipeline.
+The training pipeline uses the configuration files in the config directory to configure preprocessing, model training, and evaluation.
 
-Generated artifacts are saved in the `artifacts/` directory.
+### Command-Line Arguments
+
+The training script supports the following arguments:
+
+| Argument | Default | Description |
+|---|---|---|
+| `--data-path` | `data/raw/train.csv` | Path to the training dataset. |
+| `--config-path` | `config/model.yaml` | Path to the model and training configuration file. |
+| `--preprocessing-config-path` | `config/preprocessing.yaml` | Path to the preprocessing configuration file. |
+| `--artifact-dir` | `artifacts/` | Directory where model and evaluation artifacts are saved. |
+| `--processed-dir` | `data/processed/` | Directory for saving processed datasets. |
+| `--save-processed-data` | Disabled | Save the transformed training and validation datasets as CSV files. |
+| `--device` | `auto` | Device used for training: `auto`, `cpu`, or `cuda`. |
+| `--seed` | From `model.yaml` | Override the random seed specified in the model configuration. |
+
+Generated artifacts are saved in the specified artifact directory (`artifacts/` by default).
 
 ## Streamlit Dashboard
 
@@ -155,10 +216,11 @@ Run the dashboard from the project root:
 ```bash
 streamlit run dashboard/ds_app.py
 ```
+Note: Loading the artifacts and rendering the dashboard may take a few seconds. Please wait until all data has finished loading and the dashboard is fully displayed.
 
 ### 1. Evaluation
 
-![alt text](image.png)
+![screenshot of the overview in evaluation mode](assets/image.png)
 The Evaluation workspace presents the results of the model training and validation process.
 
 It includes the following sections:
@@ -170,7 +232,7 @@ It includes the following sections:
 - **Artifacts:** Information about the generated model artifacts and saved evaluation results.
 
 ### 2. Inference
-![alt text](image-1.png)
+![screenshot of the display in inference mode](assets/image-inf.png)
 The Inference workspace allows users to run the trained model on an external CSV dataset.
 
 The interface allows users to:

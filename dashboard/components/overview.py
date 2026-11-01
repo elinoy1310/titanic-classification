@@ -1,56 +1,10 @@
-# import streamlit as st
-# from .common import first_value
-
-
-# def _metric(metrics, name, *aliases):
-#     return first_value(metrics, name, *aliases)
-
-
-# def render_overview(data):
-#     metrics = data["metrics"]
-#     st.subheader("Validation performance")
-#     st.caption("Metrics should be calculated from the held-out validation split, not from training data.")
-
-#     specs = [
-#         ("Accuracy", ("accuracy",), "Share of all passengers classified correctly"),
-#         ("Precision", ("precision",), "Of predicted survivors, the share who survived"),
-#         ("Recall", ("recall",), "Of actual survivors, the share identified"),
-#         ("F1-score", ("f1", "f1_score"), "Harmonic mean of precision and recall"),
-#         ("ROC-AUC", ("roc_auc", "auc"), "Ranking quality across decision thresholds"),
-#     ]
-#     cols = st.columns(5)
-#     for col, (label, keys, help_text) in zip(cols, specs):
-#         value = _metric(metrics, keys[0], *keys[1:])
-#         if isinstance(value, (int, float)):
-#             col.metric(label, f"{value:.3f}" if abs(value) <= 1 else f"{value:.2f}", help=help_text)
-#         else:
-#             col.metric(label, "—", help=f"{help_text}. Not found in validation_metrics.json")
-
-#     st.divider()
-#     a, b, c = st.columns(3)
-#     best_epoch = first_value(metrics, "best_epoch")
-#     best_loss = first_value(metrics, "best_val_loss", "best_validation_loss")
-#     threshold = first_value(metrics, "decision_threshold", "threshold", default=0.5)
-#     a.metric("Best epoch", str(best_epoch) if best_epoch is not None else "—")
-#     b.metric("Best validation loss", f"{float(best_loss):.4f}" if isinstance(best_loss, (int, float)) else "—")
-#     c.metric("Decision threshold", f"{float(threshold):.2f}" if isinstance(threshold, (int, float)) else "—")
-
-#     st.subheader("How to read these results")
-#     st.markdown(
-#         "- **Accuracy** can look strong even when one class is predicted poorly.\n"
-#         "- **Precision vs. recall** exposes the trade-off between false positives and false negatives.\n"
-#         "- **ROC-AUC** measures ranking quality across thresholds; it does not select the threshold for you.\n"
-#         "- Compare training and validation loss in the Training Progress view to look for overfitting."
-#     )
-#     with st.expander("Show all classification metrics"):
-#         st.json(metrics)
-
-
+"""Summary metrics and high-level validation results."""
 
 import streamlit as st
 
 
 def render_overview(data):
+    """Render validation metrics and explain how to interpret them."""
     metrics = data["metrics"]
     st.subheader("Validation performance")
     is_oof = metrics.get("evaluation_method") == "out_of_fold"

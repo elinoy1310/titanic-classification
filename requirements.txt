@@ -16,3 +16,6 @@ streamlit>=1.36
 kaggle>=1.6
 jupyter>=1.0
 ipykernel>=6.25
+
+# Typed configuration validation
+pydantic>=2.5,<3

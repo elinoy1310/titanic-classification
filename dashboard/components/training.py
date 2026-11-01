@@ -1,45 +1,4 @@
-# import matplotlib.pyplot as plt
-# import streamlit as st
-# from .common import find_column, styled_figure
-
-
-# def render_training(data):
-#     st.subheader("Training progress")
-#     history = data["frames"]["training_history.csv"]
-#     if history is None or history.empty:
-#         st.warning("Training history is empty.")
-#         return
-
-#     epoch_col = find_column(history, ["epoch", "epochs", "step"])
-#     train_col = find_column(history, ["train_loss", "training_loss", "loss"])
-#     val_col = find_column(history, ["val_loss", "validation_loss", "valid_loss"])
-#     if not train_col and not val_col:
-#         st.error("Could not find train_loss or val_loss columns in training_history.csv.")
-#         st.write("Available columns:", list(history.columns))
-#         return
-
-#     x = history[epoch_col] if epoch_col else range(1, len(history) + 1)
-#     fig, ax = plt.subplots(figsize=(10, 4.6))
-#     if train_col:
-#         ax.plot(x, history[train_col], label="Train loss", linewidth=2.2, marker="o", markersize=3)
-#     if val_col:
-#         ax.plot(x, history[val_col], label="Validation loss", linewidth=2.2, marker="o", markersize=3)
-#         idx = history[val_col].astype(float).idxmin()
-#         best_x = history.loc[idx, epoch_col] if epoch_col else idx + 1
-#         best_y = history.loc[idx, val_col]
-#         ax.scatter([best_x], [best_y], marker="*", s=150, zorder=5, label="Lowest validation loss")
-#     ax.set_xlabel("Epoch")
-#     ax.set_ylabel("Loss")
-#     ax.set_title("Loss by epoch")
-#     ax.grid(True, alpha=.25)
-#     ax.legend(frameon=False)
-#     styled_figure(fig)
-
-#     if train_col and val_col:
-#         st.info("A widening gap where training loss keeps falling while validation loss rises can indicate overfitting. Interpret the curves together with validation metrics and dataset size.")
-#     with st.expander("View training history data"):
-#         st.dataframe(history, use_container_width=True, hide_index=True)
-
+"""Training-history and loss-curve visualizations."""
 
 import matplotlib.pyplot as plt
 import streamlit as st
@@ -47,7 +6,10 @@ import streamlit as st
 from .common import find_column, styled_figure
 
 
+
+
 def render_training(data):
+    """Render training and validation loss history."""
     st.subheader("Training progress")
 
     history = data["frames"]["training_history.csv"]
